@@ -5995,6 +5995,10 @@ function Repair-SidecarTiktoken {
         [Parameter(Mandatory = $true)][string]$TargetDir,
         [Parameter(Mandatory = $true)][string]$DirName
     )
+    # Under the offline keep this would reach for the network through Fast-Install's pip
+    # fallback, and for a tier whose rebuild was deferred it would create a directory
+    # holding tiktoken alone.
+    if ($script:OfflineFastPath) { return }
     # The payload, not the dist-info alone: an interrupted install can leave the
     # dist-info directory with no package beside it, the sidecar predicate accepts the
     # sidecar (tiktoken is unpinned and optional), and a dist-info-only check would then
@@ -6111,7 +6115,12 @@ function Install-T5Sidecar {
 $_NeedT5_530 = $false
 $_NeedT5_550 = $false
 $_NeedT5_510 = $false
-if (Test-Path -LiteralPath $VenvT5Legacy) {
+if ((Test-Path -LiteralPath $VenvT5Legacy) -and $script:OfflineFastPath) {
+    # The migration below is a wipe followed by three rebuilds, and under the offline keep
+    # nothing can be fetched: the legacy sidecar is the only one this install has, so it
+    # stays, untouched, for the next online update to migrate.
+    substep "legacy transformers sidecar left in place -- UV_OFFLINE is set, migration waits for the next online update" "Yellow"
+} elseif (Test-Path -LiteralPath $VenvT5Legacy) {
     # Legacy layout -- migrate. The tiered venvs a staged run builds land under the
     # stage root and may never be activated, so removing the live legacy one here
     # would strip the running install of its only sidecar. The live update does it.
